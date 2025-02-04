@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
     import { motion, AnimatePresence } from 'framer-motion';
-    import { FaLaugh, FaCopy, FaHeart, FaListUl } from 'react-icons/fa';
+    import { FaLaugh, FaCopy, FaHeart, FaListUl, FaStar, FaShareAlt, FaTrash } from 'react-icons/fa';
+    import { nanoid } from 'nanoid';
     import './App.css';
 
     const App = () => {
@@ -17,6 +18,18 @@ import React, { useState, useRef, useEffect } from 'react';
         }
       });
       const [showLikedJokes, setShowLikedJokes] = useState(false);
+      const [jokeRatings, setJokeRatings] = useState(() => {
+        try {
+          const storedRatings = localStorage.getItem('jokeRatings');
+          return storedRatings ? JSON.parse(storedRatings) : {};
+        } catch (error) {
+          console.error('Error loading joke ratings from localStorage:', error);
+          return {};
+        }
+      });
+      const [currentRating, setCurrentRating] = useState(0);
+      const [categories, setCategories] = useState([]);
+      const [selectedCategory, setSelectedCategory] = useState('Any');
       const jokeRef = useRef(null);
 
       useEffect(() => {
@@ -27,13 +40,51 @@ import React, { useState, useRef, useEffect } from 'react';
         }
       }, [likedJokes]);
 
+      useEffect(() => {
+        try {
+          localStorage.setItem('jokeRatings', JSON.stringify(jokeRatings));
+        } catch (error) {
+          console.error('Error saving joke ratings to localStorage:', error);
+        }
+      }, [jokeRatings]);
+
+      useEffect(() => {
+        const fetchCategories = async () => {
+          try {
+            const response = await fetch('https://official-joke-api.appspot.com/jokes/categories');
+            const data = await response.json();
+            setCategories(['Any', ...data]);
+          } catch (error) {
+            console.error('Error fetching joke categories:', error);
+            setCategories(['Any']);
+          }
+        };
+        fetchCategories();
+      }, []);
+
       const fetchJoke = async () => {
         setLoading(true);
         setCopied(false);
         try {
-          const response = await fetch('https://official-joke-api.appspot.com/random_joke');
+          let url = 'https://official-joke-api.appspot.com/random_joke';
+          if (selectedCategory !== 'Any') {
+            url = `https://official-joke-api.appspot.com/jokes/${selectedCategory}/random`;
+          }
+          // Fetch jokes based on ratings
+          const sortedJokes = Object.entries(jokeRatings)
+            .sort(([, ratingA], [, ratingB]) => ratingB - ratingA)
+            .map(([joke]) => joke);
+          if (sortedJokes.length > 0 && Math.random() < 0.5) {
+            const topJoke = sortedJokes[0];
+            setJoke(topJoke);
+            setCurrentRating(jokeRatings[topJoke]);
+            setLoading(false);
+            return;
+          }
+          const response = await fetch(url);
           const data = await response.json();
           setJoke(`${data.setup} <br/> ${data.punchline}`);
+          setCurrentRating(0);
         } catch (error) {
           setJoke('Failed to fetch a joke. Please try again.');
         } finally {
@@ -43,8 +94,22 @@ import React, { useState, useRef, useEffect } from 'react';
 
       const copyJoke = () => {
         if (jokeRef.current) {
-          navigator.clipboard.writeText(jokeRef.current.innerText);
-          setCopied(true);
+          const text = jokeRef.current.innerText;
+          const textArea = document.createElement('textarea');
+          textArea.value = text;
+          textArea.style.position = 'absolute';
+          textArea.style.left = '-9999px';
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try {
+            document.execCommand('copy');
+            setCopied(true);
+          } catch (err) {
+            console.error('Fallback: Oops, unable to copy', err);
+            alert('Fallback: Could not copy the joke, please copy manually!');
+          }
+          document.body.removeChild(textArea);
           setTimeout(() => setCopied(false), 2000);
         }
       };
@@ -61,6 +126,42 @@ import React, { useState, useRef, useEffect } from 'react';
       };
 
       const isJokeLiked = (currentJoke) => likedJokes.includes(currentJoke);
+
+      const handleRating = (rating) => {
+        if (joke) {
+          setJokeRatings((prevRatings) => ({
+            ...prevRatings,
+            [joke]: rating,
+          }));
+          setCurrentRating(rating);
+        }
+      };
+
+      const shareJoke = () => {
+        if (joke) {
+          const jokeId = nanoid();
+          const shareableUrl = `${window.location.origin}/joke/${jokeId}`;
+          const textArea = document.createElement('textarea');
+          textArea.value = shareableUrl;
+          textArea.style.position = 'absolute';
+          textArea.style.left = '-9999px';
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try {
+            document.execCommand('copy');
+            alert(`Joke shared! Copy this link: ${shareableUrl}`);
+          } catch (err) {
+            console.error('Fallback: Oops, unable to copy', err);
+            alert('Fallback: Could not copy the shareable link, please copy manually!');
+          }
+          document.body.removeChild(textArea);
+        }
+      };
+
+      const deleteLikedJoke = (jokeToDelete) => {
+        setLikedJokes(likedJokes.filter((j) => j !== jokeToDelete));
+      };
 
       return (
         <motion.div
@@ -90,6 +191,20 @@ import React, { useState, useRef, useEffect } from 'react';
               <FaListUl /> Liked Jokes
             </motion.button>
           </motion.div>
+          <div className="category-filter">
+            <label htmlFor="category">Category:</label>
+            <select
+              id="category"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+            >
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
           <AnimatePresence>
             {joke && (
               <motion.div
@@ -121,6 +236,28 @@ import React, { useState, useRef, useEffect } from 'react';
                   >
                     <FaHeart />
                   </motion.button>
+                  <motion.button
+                    className="action-button"
+                    onClick={shareJoke}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    title="Share Joke"
+                  >
+                    <FaShareAlt />
+                  </motion.button>
+                </div>
+                <div className="rating-container">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <motion.button
+                      key={star}
+                      className={`star-button ${star <= currentRating ? 'filled' : ''}`}
+                      onClick={() => handleRating(star)}
+                      whileHover={{ scale: 1.2 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <FaStar />
+                    </motion.button>
+                  ))}
                 </div>
               </motion.div>
             )}
@@ -152,6 +289,24 @@ import React, { useState, useRef, useEffect } from 'react';
                     {likedJokes.map((likedJoke, index) => (
                       <li key={index} className="liked-joke-item">
                         <p dangerouslySetInnerHTML={{ __html: likedJoke }} />
+                        <div className="liked-joke-actions">
+                          {jokeRatings[likedJoke] && (
+                            <div className="liked-joke-rating">
+                              Rating:
+                              {[...Array(jokeRatings[likedJoke])].map((_, i) => (
+                                <FaStar key={i} className="filled" />
+                              ))}
+                            </div>
+                          )}
+                          <motion.button
+                            className="delete-liked-joke"
+                            onClick={() => deleteLikedJoke(likedJoke)}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            <FaTrash />
+                          </motion.button>
+                        </div>
                       </li>
                     ))}
                   </ul>

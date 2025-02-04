@@ -162,6 +162,41 @@
       border-radius: 4px;
       margin-bottom: 10px;
       color: #eee;
+      position: relative;
+    }
+
+    .liked-joke-actions {
+      position: absolute;
+      bottom: 5px;
+      right: 5px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .liked-joke-rating {
+      font-size: 0.8em;
+      color: #d0bfff;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .liked-joke-rating .filled {
+      color: #ffc107;
+    }
+
+    .delete-liked-joke {
+      background: none;
+      border: none;
+      color: #d0bfff;
+      font-size: 1em;
+      cursor: pointer;
+      transition: color 0.3s ease;
+    }
+
+    .delete-liked-joke:hover {
+      color: #ff69b4;
     }
 
     .close-modal-button {
@@ -179,4 +214,47 @@
 
     .close-modal-button:hover {
       background-color: #a880d9;
+    }
+
+    .rating-container {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      margin-top: 10px;
+    }
+
+    .star-button {
+      background: none;
+      border: none;
+      color: #d0bfff;
+      font-size: 1.2em;
+      cursor: pointer;
+      transition: color 0.3s ease;
+    }
+
+    .star-button:hover,
+    .star-button.filled {
+      color: #ffc107;
+    }
+
+    .category-filter {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 15px;
+      gap: 10px;
+    }
+
+    .category-filter label {
+      color: #d0bfff;
+      font-size: 1.1em;
+    }
+
+    .category-filter select {
+      background-color: #333;
+      color: #eee;
+      border: 1px solid #555;
+      border-radius: 4px;
+      padding: 8px;
+      font-size: 1em;
     }
